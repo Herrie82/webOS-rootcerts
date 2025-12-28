@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cat:*)",
+      "Bash(zcat:*)",
+      "Bash(tar:*)",
+      "Bash(curl:*)",
+      "Bash(mv:*)",
+      "Bash(ls:*)"
+    ]
+  }
+}

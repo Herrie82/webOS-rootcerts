@@ -1,0 +1,8 @@
+Package: com.palm.rootcertsupdate
+Version: 1.0-3
+Architecture: all
+Maintainer: frantid <http://forums.precentral.net/members/frantid.html>
+Description: RootCertsUpdate (Updated 2025-12-28 with Mozilla CA bundle from 2025-12-02)
+Section: misc
+Priority: optional
+Source: 
