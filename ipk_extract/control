@@ -1,0 +1,8 @@
+Package: com.palm.rootcertsupdate
+Version: 1.0-5
+Architecture: all
+Maintainer: Herrie (https://github.com/herrie82)
+Description: RootCertsUpdate (Updated 2025-12-28 with Mozilla CA bundle from 2025-12-02, fixed postinst)
+Section: misc
+Priority: optional
+Source: 

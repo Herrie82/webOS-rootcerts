@@ -1,0 +1,109 @@
+#!/bin/sh
+
+APPID=com.palm.rootcertsupdate
+
+# Handle execution as pmPostInstall.script
+if [ -z "$IPKG_OFFLINE_ROOT" ]; then
+    IPKG_OFFLINE_ROOT=/media/cryptofs/apps
+    mount -o remount,rw /
+fi
+
+mount -o remount,rw /
+
+APPS=/media/cryptofs/apps
+
+[ -d ${APPS} ] || { echo "Requires webOS 1.3.5 or later" ; exit 1 ; }
+SCRIPTS=/etc/ssl/scripts
+SRCDIR=${APPS}/usr/palm/applications/${APPID}
+
+# Check if files are in alternate location (when installed via ipkg)
+if [ ! -d ${SRCDIR} ] && [ -d /usr/palm/applications/${APPID} ]; then
+    SRCDIR=/usr/palm/applications/${APPID}
+fi
+
+cd ${SRCDIR}
+
+error=0
+echo "copying scripts"
+mkdir -p /etc/ssl/scripts
+install -m 775 ${SRCDIR}/scripts/* /etc/ssl/scripts/
+
+if [ ! -d /etc/ssl/certs/trustedcerts ] && [ ! -d /var/ssl/trustedcerts ]; then
+    if [ -f ${SCRIPTS}/ca-certificates.crt ]; then
+        echo "1.4.5 or earlier updating root cert bundle"
+        cd ${SCRIPTS}
+        mv -f /etc/ssl/certs/ca-certificates.crt ${SCRIPTS}/ca-certificates.crt.old
+        mv -f ${SCRIPTS}/ca-certificates.crt /etc/ssl/certs/
+        mv -f ${SCRIPTS}/system-bundle.crt.gz /etc/ssl/certs/
+        rm -f ${SCRIPTS}/root-certs.tar.gz
+        rm -f ${SCRIPTS}/deploycerts.sh
+        rm -f ${SCRIPTS}/movecerts.sh
+        rm -f ${SCRIPTS}/cleancerts.sh
+        rm -f ${SCRIPTS}/verifylinks.sh
+        echo "Root certs successfully updated"
+        sleep 4
+        exit 0
+    fi
+    echo "cannot find updated root certs, exiting install, root certs not updated!"
+    sleep 4
+    exit 1
+fi
+
+if [ -d /etc/ssl/certs/trustedcerts ]; then
+    # webOS 2.x and later - individual certificate deployment
+    # Ensure /var/ssl/trustedcerts exists (might not exist during install)
+    if [ ! -d /var/ssl/trustedcerts ]; then
+        echo "creating /var/ssl/trustedcerts"
+        mkdir -p /var/ssl/trustedcerts
+    fi
+
+    if [ -d /etc/ssl/scripts ] && [ -f ${SCRIPTS}/root-certs.tar.gz ]; then
+        echo "extracting root certs"
+        cd ${SCRIPTS}
+        rm -rf rootcerts
+        mkdir -p rootcerts
+        # remove 1.4.5 files
+        rm -f ${SCRIPTS}/ca-certificates.crt
+        rm -f ${SCRIPTS}/system-bundle.crt.gz
+        $( cd rootcerts ; tar -xzf ../root-certs.tar.gz )
+        RTCERTS=$(find ./rootcerts -type f -print0)
+        if [ -n ${RTCERTS} ]; then
+            cd ${SCRIPTS}
+            ${SCRIPTS}/deploycerts.sh
+
+            # Rebuild CA certificate bundle from modern certificates
+            echo "Updating CA certificate bundle ..."
+            if [ -d /etc/ssl/certs/trustedcerts ]; then
+                # Backup old certificate bundle
+                if [ -f /etc/ssl/certs/ca-certificates.crt ]; then
+                    cp /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt.old
+                    echo "  Backed up old ca-certificates.crt"
+                fi
+
+                # Create new bundle from all PEM files in trustedcerts
+                cd /etc/ssl/certs/trustedcerts
+                cat *.pem > /etc/ssl/certs/ca-certificates.crt.new
+                mv /etc/ssl/certs/ca-certificates.crt.new /etc/ssl/certs/ca-certificates.crt
+
+                cert_count=$(ls -1 *.pem 2>/dev/null | wc -l)
+                echo "  ✓ Rebuilt ca-certificates.crt from ${cert_count} certificates"
+            else
+                echo "  WARNING: /etc/ssl/certs/trustedcerts not found, skipping"
+            fi
+        else
+            echo "cannot find updated root certs, exiting install, root certs not updated!"
+            exit 1
+        fi
+    else
+        echo "cannot find updated root certs, exiting install, root certs not updated!"
+        exit 1
+    fi
+else
+    echo "cannot find /etc/ssl/certs/trustedcerts directory, exiting install, root certs not updated!"
+    exit 1
+fi
+[ -d ${SCRIPTS}/rootcerts ] && rm -rf ${SCRIPTS}/rootcerts
+echo "Root certs successfully updated"
+sleep 4
+
+exit 0
